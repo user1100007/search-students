@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="km">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>បញ្ជីសិស្ស</title>
+		<style>
+			body {
+				font-family: "Khmer OS Battambang", "Noto Sans Khmer",
+					sans-serif;
+				margin: 16px;
+				background: #f8fafc;
+			}
+			.bar {
+				display: flex;
+				gap: 8px;
+				flex-wrap: wrap;
+				margin-bottom: 12px;
+			}
+			.bar button,
+			.bar label {
+				padding: 8px 14px;
+				border-radius: 8px;
+				border: 1px solid #cbd5e1;
+				background: #fff;
+				cursor: pointer;
+				font-size: 14px;
+			}
+			.bar button:hover,
+			.bar label:hover {
+				background: #f1f5f9;
+			}
+			.wrap {
+				overflow-x: auto;
+			}
+			table {
+				border-collapse: collapse;
+				background: #fff;
+				min-width: 1100px;
+			}
+			th,
+			td {
+				border: 1px solid #e2e8f0;
+				padding: 6px 8px;
+				text-align: left;
+				white-space: nowrap;
+			}
+			th {
+				background: #f1f5f9;
+			}
+			td.no {
+				text-align: center;
+				font-weight: bold;
+				background: #f8fafc;
+			}
+			td[contenteditable]:focus {
+				outline: 2px solid #6fd3a4;
+				background: #f0fdf4;
+			}
+			.grade-group {
+				display: flex;
+				gap: 6px;
+			}
+			.grade-btn {
+				min-width: 40px;
+				height: 40px;
+				padding: 0 8px;
+				border-radius: 10px;
+				border: 1px solid #e2e8f0;
+				background: #fff;
+				font-weight: bold;
+				font-size: 15px;
+				cursor: pointer;
+			}
+			.grade-btn:hover {
+				background: #f1f5f9;
+			}
+			.grade-btn.active {
+				background: #3f9a6c;
+				color: #fff;
+				border: 2px solid #6fd3a4;
+			}
+			.del {
+				border: none;
+				background: none;
+				color: #dc2626;
+				font-size: 18px;
+				cursor: pointer;
+			}
+			.bar select {
+				padding: 8px 10px;
+				border-radius: 8px;
+				border: 1px solid #cbd5e1;
+				background: #fff;
+				font-size: 14px;
+			}
+			.filters {
+				display: flex;
+				gap: 8px;
+				align-items: center;
+				flex-wrap: wrap;
+				margin-bottom: 12px;
+				font-size: 14px;
+			}
+			#printTitle {
+				display: none;
+				font-size: 16px;
+				font-weight: bold;
+				margin-bottom: 8px;
+			}
+			@media print {
+				body {
+					background: #fff;
+					margin: 0;
+				}
+				.bar,
+				.filters {
+					display: none;
+				}
+				#printTitle {
+					display: block;
+				}
+				tr > :last-child {
+					display: none;
+				}
+				.wrap {
+					overflow: visible;
+				}
+				table {
+					min-width: 0;
+					width: 100%;
+					font-size: 12px;
+				}
+				th,
+				td {
+					padding: 4px 6px;
+				}
+				.grade-btn:not(.active) {
+					display: none;
+				}
+				.grade-btn.active {
+					border: none;
+					background: none;
+					color: #000;
+					min-width: 0;
+					height: auto;
+					padding: 0;
+				}
+				td[contenteditable] {
+					outline: none;
+				}
+			}
+		</style>
+	</head>
+	<body>
+		<div class="bar">
+			<label
+				>📥 Import JSON
+				<input
+					type="file"
+					id="file"
+					accept=".json,application/json"
+					hidden
+				/>
+			</label>
+			<button id="export">📤 Export JSON</button>
+			<button id="add">➕ បន្ថែមសិស្ស</button>
+			<button id="csv">⬇️ Download (Excel/CSV)</button>
+			<button id="printBtn">🖨️ Print</button>
+		</div>
+
+		<div class="filters">
+			<span>🔎 ត្រង៖</span>
+			<label
+				>អាយុ
+				<select id="ageSel"></select
+			></label>
+			<label
+				>ថ្នាក់
+				<select id="gradeSel"></select
+			></label>
+			<span>បង្ហាញ <b id="count">0</b> នាក់</span>
+		</div>
+
+		<div id="printTitle"></div>
+
+		<div class="wrap">
+			<table>
+				<thead>
+					<tr>
+						<th>ល.រ</th>
+						<th>នាមត្រកូល</th>
+						<th>នាមខ្លួន</th>
+						<th>ភេទ</th>
+						<th>ថ្ងៃខែឆ្នាំកំណើត</th>
+						<th>អាយុ</th>
+						<th>ភូមិ</th>
+						<th>ឃុំ/សង្កាត់</th>
+						<th>ស្រុក</th>
+						<th>ខេត្ត</th>
+						<th>ថ្នាក់</th>
+						<th></th>
+					</tr>
+				</thead>
+				<tbody id="body"></tbody>
+			</table>
+		</div>
+
+		<script>
+			const FIELDS = [
+				"lastName",
+				"firstName",
+				"gender",
+				"dob",
+				"age",
+				"village",
+				"commune",
+				"district",
+				"province",
+			];
+			const GRADES = [
+				"មត្តេយ្យ",
+				"១",
+				"២",
+				"៣",
+				"៤",
+				"៥",
+				"៦",
+				"៧",
+				"៨",
+				"៩",
+				"១០",
+				"១១",
+				"១២",
+			];
+			const body = document.getElementById("body");
+
+			const toKhmer = (n) =>
+				String(n).replace(/\d/g, (d) => "០១២៣៤៥៦៧៨៩"[d]);
+
+			const ageSel = document.getElementById("ageSel");
+			const gradeSel = document.getElementById("gradeSel");
+			const countEl = document.getElementById("count");
+
+			gradeSel.innerHTML =
+				'<option value="">ទាំងអស់</option><option value="__none">មិនទាន់ជ្រើស</option>' +
+				GRADES.map((g) => `<option>${g}</option>`).join("");
+
+			function refreshAgeOptions() {
+				const cur = ageSel.value;
+				const ages = [
+					...new Set(
+						[...body.rows]
+							.map((r) =>
+								r
+									.querySelector('[data-f="age"]')
+									.textContent.trim()
+							)
+							.filter((a) => a !== "")
+					),
+				].sort((a, b) => a - b);
+				ageSel.innerHTML =
+					'<option value="">ទាំងអស់</option>' +
+					ages.map((a) => `<option>${a}</option>`).join("");
+				ageSel.value = cur;
+			}
+
+			// ត្រងជួរ + រាប់ ល.រ ឡើងវិញ (តែជួរដែលបង្ហាញ)
+			function renumber() {
+				refreshAgeOptions();
+				const ageF = ageSel.value,
+					gradeF = gradeSel.value;
+				let n = 0;
+				[...body.rows].forEach((r) => {
+					const age = r
+						.querySelector('[data-f="age"]')
+						.textContent.trim();
+					const grade =
+						r.querySelector(".grade-group").dataset.value || "";
+					const ok =
+						(ageF === "" || age === ageF) &&
+						(gradeF === "" ||
+							(gradeF === "__none"
+								? grade === ""
+								: grade === gradeF));
+					r.style.display = ok ? "" : "none";
+					if (ok) r.cells[0].textContent = toKhmer(++n);
+				});
+				countEl.textContent = n;
+				const parts = [];
+				if (ageF) parts.push("អាយុ " + ageF + " ឆ្នាំ");
+				if (gradeF)
+					parts.push(
+						"ថ្នាក់ " +
+							(gradeF === "__none" ? "មិនទាន់ជ្រើស" : gradeF)
+					);
+				document.getElementById("printTitle").textContent =
+					"បញ្ជីសិស្ស" +
+					(parts.length ? " — " + parts.join(", ") : "");
+			}
+
+			ageSel.onchange = gradeSel.onchange = renumber;
+
+			// គណនាអាយុ (ឆ្នាំពេញ) ពីថ្ងៃខែឆ្នាំកំណើត ទម្រង់ ថ្ងៃ-ខែ-ឆ្នាំ (ទទួលលេខខ្មែរ និង - / .)
+			function calcAge(tr) {
+				const ageCell = tr.querySelector('[data-f="age"]');
+				const raw = tr
+					.querySelector('[data-f="dob"]')
+					.textContent.replace(/[០-៩]/g, (d) =>
+						"០១២៣៤៥៦៧៨៩".indexOf(d)
+					)
+					.trim();
+				const m = raw.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})$/);
+				if (!m) {
+					ageCell.textContent = "";
+					return;
+				}
+				const day = +m[1],
+					month = +m[2],
+					year = +m[3];
+				const birth = new Date(year, month - 1, day);
+				if (
+					birth.getFullYear() !== year ||
+					birth.getMonth() !== month - 1 ||
+					birth.getDate() !== day
+				) {
+					ageCell.textContent = "";
+					return;
+				}
+				const now = new Date();
+				let age = now.getFullYear() - year;
+				if (
+					now.getMonth() < month - 1 ||
+					(now.getMonth() === month - 1 && now.getDate() < day)
+				)
+					age--;
+				ageCell.textContent = age >= 0 ? age : "";
+			}
+
+			function setGrade(group, value) {
+				group.dataset.value = value || "";
+				group
+					.querySelectorAll(".grade-btn")
+					.forEach((b) =>
+						b.classList.toggle("active", b.textContent === value)
+					);
+			}
+
+			function addRow(s = {}) {
+				const tr = document.createElement("tr");
+				tr.innerHTML =
+					`<td class="no"></td>` +
+					FIELDS.map(
+						(f) =>
+							`<td contenteditable="${
+								f === "age" ? "false" : "true"
+							}" data-f="${f}"></td>`
+					).join("") +
+					`<td><div class="grade-group"></div></td>` +
+					`<td><button class="del" title="លុប">✕</button></td>`;
+
+				FIELDS.forEach(
+					(f) =>
+						(tr.querySelector(`[data-f="${f}"]`).textContent =
+							s[f] ?? "")
+				);
+
+				const dobCell = tr.querySelector('[data-f="dob"]');
+				dobCell.addEventListener("input", () => {
+					calcAge(tr);
+					renumber();
+				});
+				calcAge(tr);
+
+				const group = tr.querySelector(".grade-group");
+				GRADES.forEach((g) => {
+					const b = document.createElement("button");
+					b.type = "button";
+					b.className = "grade-btn";
+					b.textContent = g;
+					b.onclick = () => {
+						setGrade(group, g);
+						renumber();
+					};
+					group.appendChild(b);
+				});
+				setGrade(group, s.grade);
+
+				tr.querySelector(".del").onclick = () => {
+					tr.remove();
+					renumber();
+				};
+				body.appendChild(tr);
+				renumber();
+			}
+
+			function toData() {
+				return [...body.rows]
+					.filter((tr) => tr.style.display !== "none")
+					.map((tr) => {
+						const o = {};
+						FIELDS.forEach(
+							(f) =>
+								(o[f] = tr
+									.querySelector(`[data-f="${f}"]`)
+									.textContent.trim())
+						);
+						o.grade =
+							tr.querySelector(".grade-group").dataset.value ||
+							"";
+						return o;
+					});
+			}
+
+			document.getElementById("add").onclick = () => addRow();
+			document.getElementById("printBtn").onclick = () => window.print();
+
+			// Download CSV (បើកក្នុង Excel បាន) តែជួរដែលកំពុងបង្ហាញ
+			document.getElementById("csv").onclick = () => {
+				const head = [
+					"ល.រ",
+					"នាមត្រកូល",
+					"នាមខ្លួន",
+					"ភេទ",
+					"ថ្ងៃខែឆ្នាំកំណើត",
+					"អាយុ",
+					"ភូមិ",
+					"ឃុំ/សង្កាត់",
+					"ស្រុក",
+					"ខេត្ត",
+					"ថ្នាក់",
+				];
+				const q = (v) => `"${String(v).replace(/"/g, '""')}"`;
+				const lines = [head.map(q).join(",")];
+				[...body.rows]
+					.filter((tr) => tr.style.display !== "none")
+					.forEach((tr) => {
+						const row = [tr.cells[0].textContent];
+						FIELDS.forEach((f) =>
+							row.push(
+								tr
+									.querySelector(`[data-f="${f}"]`)
+									.textContent.trim()
+							)
+						);
+						row.push(
+							tr.querySelector(".grade-group").dataset.value || ""
+						);
+						lines.push(row.map(q).join(","));
+					});
+				const blob = new Blob(["\uFEFF" + lines.join("\r\n")], {
+					type: "text/csv;charset=utf-8",
+				});
+				const a = document.createElement("a");
+				a.href = URL.createObjectURL(blob);
+				a.download = "students.csv";
+				a.click();
+			};
+
+			document.getElementById("file").onchange = (e) => {
+				const f = e.target.files[0];
+				if (!f) return;
+				const reader = new FileReader();
+				reader.onload = () => {
+					try {
+						const data = JSON.parse(reader.result);
+						const list = Array.isArray(data)
+							? data
+							: data.students || [];
+						body.innerHTML = "";
+						list.forEach(addRow);
+					} catch (err) {
+						alert("ឯកសារ JSON មិនត្រឹមត្រូវ");
+					}
+				};
+				reader.readAsText(f);
+				e.target.value = "";
+			};
+
+			document.getElementById("export").onclick = () => {
+				const blob = new Blob([JSON.stringify(toData(), null, 2)], {
+					type: "application/json",
+				});
+				const a = document.createElement("a");
+				a.href = URL.createObjectURL(blob);
+				a.download = "students.json";
+				a.click();
+			};
+
+			// តម្រៀប (Sort) ដោយចុចលើក្បាលជួរ
+			let sortCol = -1,
+				sortAsc = true;
+			const collator = new Intl.Collator("km");
+
+			function cellValue(tr, col) {
+				if (col === 10)
+					return GRADES.indexOf(
+						tr.querySelector(".grade-group").dataset.value || ""
+					);
+				return tr.cells[col].textContent.trim();
+			}
+
+			function dobKey(s) {
+				const m = s
+					.replace(/[០-៩]/g, (d) => "០១២៣៤៥៦៧៨៩".indexOf(d))
+					.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})$/);
+				return m ? +m[3] * 10000 + +m[2] * 100 + +m[1] : 0;
+			}
+
+			document.querySelectorAll("thead th").forEach((th, col) => {
+				if (col === 0 || col === 11) return;
+				th.style.cursor = "pointer";
+				th.title = "ចុចដើម្បីតម្រៀប";
+				th.onclick = () => {
+					sortAsc = sortCol === col ? !sortAsc : true;
+					sortCol = col;
+					const rows = [...body.rows];
+					rows.sort((a, b) => {
+						const x = cellValue(a, col),
+							y = cellValue(b, col);
+						let r;
+						if (col === 10 || col === 5) r = (+x || 0) - (+y || 0);
+						else if (col === 4) r = dobKey(x) - dobKey(y);
+						else r = collator.compare(x, y);
+						return sortAsc ? r : -r;
+					});
+					rows.forEach((r) => body.appendChild(r));
+					renumber();
+					document
+						.querySelectorAll("thead th")
+						.forEach(
+							(h) =>
+								(h.textContent = h.textContent.replace(
+									/ [▲▼]$/,
+									""
+								))
+						);
+					th.textContent += sortAsc ? " ▲" : " ▼";
+				};
+			});
+
+			// ទិន្នន័យគំរូ
+			addRow({
+				lastName: "ចាន់",
+				firstName: "វុទ្ធី",
+				gender: "ប្រុស",
+				dob: "17-12-2024",
+				age: "1",
+				village: "ភូមិរោគ",
+				commune: "ស្ពានស្រែង",
+				district: "ភ្នំស្រុក",
+				province: "បន្ទាយមានជ័យ",
+			});
+			addRow({
+				lastName: "ម៉ុនជា",
+				firstName: "នារាយណ៍",
+				gender: "ប្រុស",
+				dob: "09-12-2024",
+				age: "1",
+				village: "ភូមិរោគ",
+				commune: "ស្ពានស្រែង",
+				district: "ភ្នំស្រុក",
+				province: "បន្ទាយមានជ័យ",
+			});
+		</script>
+	</body>
+</html>
